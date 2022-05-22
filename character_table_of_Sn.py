@@ -3,10 +3,12 @@ from itertools import product
 
 
 # define number of letters to permute
-N = 4
+N = 5
 factorial = np.math.factorial
 # number of elements in S_N
 ORD = factorial(N)
+# do you want to save your results in a file?
+SAVE = True
 
 
 # useful function for calculating cycle types from partitions
@@ -64,7 +66,7 @@ def get_repartitions(p, k):
 
 def psi(p, k):
     # calculate entries of Psi matrix
-    res = np.array(0., dtype="f4")
+    res = np.array(0., dtype=np.float128)
     for r in get_repartitions(p, k):
         k_factorial = np.array([factorial(k_i) for k_i in k])
         r_factorial = np.array([[factorial(r_ij) for r_ij in r_j]
@@ -75,9 +77,9 @@ def psi(p, k):
 
 if __name__ == "__main__":
     # build Psi matrix. The cycle types k need to be padded to length N
-    Psi = np.array([[psi(p, np.pad(k, (0, N-len(k))))
-                    for k in get_all_cycle_types(N)]
-                    for p in get_partitions(N)], dtype="i4")
+    Psi = np.around(np.array([[psi(p, np.pad(k, (0, N-len(k))))
+                             for k in get_all_cycle_types(N)]
+                             for p in get_partitions(N)])).astype(np.uint64)
     print("Psi:\n", Psi, "\n")
 
     # calculate order of conjugacy class labeled by cycle type k
@@ -89,11 +91,12 @@ if __name__ == "__main__":
 
     # build Sigma matrix from (3.52) in the script
     Sigma = np.diag(np.array([ord_C(k) / ORD
-                              for k in get_all_cycle_types(N)]))
+                              for k in get_all_cycle_types(N)],
+                              dtype=np.float128))
     print("Sigma:\n", Sigma, "\n")
 
     # calculate Psi * Sigma * Psi.T
-    PSPT = np.around(Psi @ Sigma @ Psi.T).astype("i4")
+    PSPT = np.around(Psi @ Sigma @ Psi.T).astype(np.uint64)
     print("Psi * Sigma * Psi.T:\n", PSPT, "\n")
 
 
@@ -120,21 +123,23 @@ if __name__ == "__main__":
     # start of recursion
     fill_K_column(PSPT, len(PSPT))
 
-    K = np.around(np.array(K)).astype("i4")
+    K = np.around(np.array(K)).astype(np.uint64)
     print("K:\n", K, "\n")
 
 
-    X = np.around(np.linalg.inv(K) @ Psi).astype("i4")
+    X = np.around(np.linalg.inv(K) @ Psi).astype(np.int64)
     print("X:\n", X, "\n")
 
-    II = np.around(X @ Sigma @ X.T).astype("i4")
-    success = not np.max(II - np.identity(len(II)))
+    II = np.around(X @ Sigma @ X.T).astype(np.int64)
+    success = not np.max(np.abs(II - np.identity(len(II))))
     print("X * Sigma * X.T:\n", II, "\n")
     print("Is X * Sigma * X.T == I (after rounding to integers)?:",
           success, "\n")
 
     if success:
         print("We calculated the character table succesfully!")
+        if SAVE:
+            with open("character_table_of_S_"+str(N)+".npy", "wb") as f:
+                np.save(f, X)
     else:
         print("It seems like something went wrong :(")
-
